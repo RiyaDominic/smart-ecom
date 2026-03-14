@@ -1,194 +1,368 @@
-# Smart Ecom Project
 
-![](images/image1.png)
 
-![](images/image2.png)
+# Smart E-commerce Microservices
 
-This repository contains several microservices and components for the `smart-ecom` application.
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue)](https://github.com/RiyaDominic/smart-ecom)
 
-## Services
+## Project Overview
 
-- **Payment Service**: A Flask-based service handling payment processing with a simple discount code feature. Detailed documentation is included below and also available in `payment-service/README.md`.
-- **Cart Service**: Node.js service for shopping cart operations (`cart-service/`).
-- **Discount Function**: Serverless function (in `discount-function/`).
-- **gRPC Examples**: Demonstrations in `grpc_cart/`, `grpc-cart/`, and `grpctest/`.
-- **Inventory Service**: Java-based service under `inventory-service/`.
-
-## Root README
-
-The root README gives an overview of the project layout and references specific service READMEs.
-
-## Getting Started
-
-Choose a component and follow its individual documentation to run or build it.
+This project demonstrates a complete end-to-end e-commerce checkout pipeline using independent microservices. It simulates a real-world workflow similar to Amazon or Flipkart, utilizing REST APIs, asynchronous messaging with RabbitMQ, persistent storage with MySQL, and serverless functions for discount calculations. The system operates without a user interface, focusing on backend microservices communication.
 
 ---
 
-### Running the Payment Service (full details inline)
+## Architecture
 
-![](images/image3.png)
+The architecture follows a microservices pattern with the following flow:
 
-The payment service provides a `/pay` endpoint and applies a discount code when appropriate.
-
-#### Features
-
-- Exposes a single `/pay` endpoint that accepts a JSON payload.
-- Applies a discount when the `code` field is set to `NEWYEAR` (20% off).
-- Returns payment details including original amount, discount applied, and final amount.
-
-#### API
-
-**POST /pay**
-
-Request Body (JSON):
-
-```json
-{
-  "amount": 100.0,
-  "method": "card",
-  "code": "NEWYEAR"  // optional discount code
-}
+```
+[Cart Service] → [Discount Function] → [Payment Service] → [RabbitMQ] → [Inventory Service] → [MySQL]
+     ↓
+[gRPC Cart Service] (Alternative gRPC interface)
 ```
 
-- `amount` (number): The total amount to be charged. Defaults to `0`.
-- `method` (string): Payment method (e.g., `card`, `paypal`). Defaults to `card`.
-- `code` (string): Optional discount code. If set to `NEWYEAR`, a 20% discount is applied.
+- **Cart Service (Node.js/Express)**: Manages shopping cart operations (add, view, clear items).
+- **Discount Function (Serverless/AWS Lambda)**: Calculates discount rates based on promo codes.
+- **Payment Service (Python/Flask)**: Processes payments, applies discounts, and publishes payment events.
+- **Inventory Service (Java/Spring Boot)**: Manages product inventory, consumes payment events to update stock.
+- **gRPC Cart Service (Node.js/gRPC)**: Provides an alternative gRPC interface for cart operations.
+- **RabbitMQ**: Message broker for asynchronous communication between payment and inventory services.
+- **MySQL**: Database for persistent inventory storage.
 
-Response (JSON):
+---
 
-```json
-{
-  "status": "ok",
-  "method": "card",
-  "original_amount": 100.0,
-  "discount": 20.0,
-  "final_amount": 80.0
-}
-```
+## Services & Technologies
 
-![](images/image4.png)
+| Service | Technology | Port | Description |
+|---|---|---|---|
+| Cart Service | Node.js / Express | 3001 | REST API for cart management |
+| Payment Service | Python / Flask | 3002 | Payment processing with discount application |
+| Inventory Service | Java / Spring Boot | 3003 | Inventory management with JPA and RabbitMQ consumer |
+| Discount Function | Serverless (Node.js) | 3000 (offline) | Serverless function for discount calculation |
+| gRPC Cart Service | Node.js / gRPC | 50051 | gRPC interface for cart operations |
+| RabbitMQ | Docker Image | 5672 / 15672 | Message broker |
+| MySQL | Docker Image | 3307 | Database |
 
-#### Running Locally
+---
 
-1. Make sure you have Python 3.7+ and `pip` installed.
-2. Create a virtual environment and activate it:
+## Prerequisites
 
+- Docker and Docker Compose
+- Node.js (for cart service and discount function)
+- Python 3 (for payment service)
+- Java 11+ and Maven (for inventory service)
+- Serverless Framework (for discount function)
+
+---
+
+## Installation & Setup
+
+1. **Clone the repository:**
    ```bash
-   python -m venv venv
-   source venv/bin/activate    # on Windows: venv\Scripts\activate
+   git clone https://github.com/RiyaDominic/smart-ecom.git
+   cd smart-ecom
    ```
 
-3. Install dependencies:
+2. **Install dependencies for each service:**
 
+   - Cart Service:
+     ```bash
+     cd cart-service
+     npm install
+     cd ..
+     ```
+
+   - Payment Service:
+     ```bash
+     cd payment-service
+     pip install flask pika
+     cd ..
+     ```
+
+   - Inventory Service:
+     ```bash
+     cd inventory-service
+     mvn clean install
+     cd ..
+     ```
+
+   - Discount Function:
+     ```bash
+     npm install -g serverless
+     cd discount-function
+     npm install
+     cd ..
+     ```
+
+---
+
+## Running the Application
+
+### Using Docker Compose (Recommended)
+
+1. Navigate to the deploy directory:
    ```bash
-   pip install flask
+   cd deploy
    ```
 
-4. Start the service:
-
+2. Start all services:
    ```bash
+   docker-compose up --build
+   ```
+
+   This will start all microservices, RabbitMQ, and MySQL.
+
+### Running Individually
+
+1. **Start infrastructure:**
+   ```bash
+   cd deploy
+   docker-compose up rabbitmq mysql
+   ```
+
+2. **Start Discount Function (Serverless Offline):**
+   ```bash
+   cd discount-function
+   serverless offline start
+   ```
+
+3. **Start Cart Service:**
+   ```bash
+   cd cart-service
+   node index.js
+   ```
+
+4. **Start Payment Service:**
+   ```bash
+   cd payment-service
    python app.py
    ```
 
-The service will listen on `http://0.0.0.0:3002`.
+5. **Start Inventory Service:**
+   ```bash
+   cd inventory-service
+   mvn spring-boot:run
+   ```
 
-![](images/image5.png)
-
-#### Docker
-
-A `Dockerfile` is provided to build a container image.
-
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY app.py ./
-RUN pip install flask
-EXPOSE 3002
-CMD ["python", "app.py"]
-```
-
-Build and run the image:
-
-```bash
-docker build -t payment-service .
-docker run -p 3002:3002 payment-service
-```
-
-> **Note:** This service is intentionally minimal for demonstration purposes. Extend it with real payment gateway integration and validation as needed.
+6. **Start gRPC Cart Service (optional):**
+   ```bash
+   cd grpc-cart
+   node server.js
+   ```
 
 ---
 
-### Cart Service
+## API Endpoints
 
-![](images/image6.png)
+### Cart Service (REST)
+- `POST /add` - Add item to cart
+  - Body: `{ "item": "Laptop" }`
+- `GET /view` - View cart items
+- `DELETE /clear` - Clear cart
 
-A lightweight Express.js microservice managing a shopping cart in memory.
-
-- **Endpoints**:
-  - `POST /add` – Add an item (JSON body `{ "item": ... }`).
-  - `GET /view` – Retrieve the current cart contents.
-  - `DELETE /clear` – Empty the cart.
-
-Run it with Node.js:
-
-```bash
-cd cart-service
-npm install
-node index.js
-```
-
-The service listens on port **3001** by default.
-
----
+### Payment Service
+- `POST /pay` - Process payment
+  - Body: `{ "amount": 100, "method": "card", "code": "NEWYEAR" }`
 
 ### Discount Function
-
-![](images/image7.png)
-
-Serverless JavaScript function that calculates a discount percentage based on a promo code.
-
-- Expects a JSON request with a `code` field.
-- Returns `{ "discount": 0.2 }` for `NEWYEAR`, otherwise `{ "discount": 0 }`.
-
-Deploy using the `serverless.yml` configuration in the `discount-function` folder (e.g. `serverless deploy`).
-
----
-
-### gRPC Examples
-
-![](images/image8.png)
-
-Three folders demonstrate gRPC usage:
-
-- `grpc-cart/` – Node.js server (`server.js`) with `cart.proto` and a Python client (`client.py`).
-- `grpc_cart/` – Generated Python modules (`*_pb2.py`, `*_pb2_grpc.py`) for the cart service.
-- `grpctest/` – A Python virtual environment containing gRPC tooling and dependencies for experimentation.
-
-Use `protoc` or `grpc_tools` to regenerate bindings if you modify `cart.proto`.
-
----
+- `POST /apply-discount` - Get discount rate
+  - Body: `{ "code": "NEWYEAR" }`
 
 ### Inventory Service
+- `POST /inventory/update` - Update inventory
+  - Body: `{ "Laptop": 50 }`
+- `GET /inventory/view` - View all inventory
 
-![](images/image9.png)
-
-Java Maven project providing inventory management logic.
-
-```bash
-cd inventory-service
-mvn package
-```
-
-Artifact produced: `target/demo-0.0.1-SNAPSHOT.jar`. A Dockerfile is available for container builds.
+### gRPC Cart Service
+- `ViewCart` - View cart items via gRPC
 
 ---
 
-### Deployment
+## Testing the Checkout Flow
 
-![](images/image10.png)
+### Step 1: Set up Inventory
+```bash
+curl -X POST http://localhost:3003/inventory/update \
+  -H "Content-Type: application/json" \
+  -d '{"Laptop": 50}'
+```
 
-Configuration for local and Kubernetes deployments lives in the `deploy/` directory:
+### Step 2: Add Items to Cart
+```bash
+curl -X POST http://localhost:3001/add \
+  -H "Content-Type: application/json" \
+  -d '{"item": "Laptop"}'
+```
 
-- `docker-compose.yml` – orchestrate multiple services locally.
-- `k8s-cart.yaml` – Kubernetes manifest for the cart service.
-- `nginx.conf` – example reverse-proxy setup.
+### Step 3: View Cart
+```bash
+curl http://localhost:3001/view
+```
+
+### Step 4: Apply Discount
+```bash
+curl -X POST http://localhost:3000/apply-discount \
+  -H "Content-Type: application/json" \
+  -d '{"code": "NEWYEAR"}'
+```
+
+### Step 5: Process Payment
+```bash
+curl -X POST http://localhost:3002/pay \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 1000, "method": "card", "code": "NEWYEAR"}'
+```
+
+### Step 6: Check Inventory Update
+After payment, the inventory should be updated automatically via RabbitMQ.
+
+```bash
+curl http://localhost:3003/inventory/view
+```
+
+---
+
+## Deployment
+
+### Kubernetes
+Use the provided Kubernetes manifest:
+```bash
+kubectl apply -f deploy/k8s-cart.yaml
+```
+
+### Serverless Deployment
+For the discount function:
+```bash
+cd discount-function
+serverless deploy
+```
+
+---
+
+## Technologies Used
+
+- **Node.js**: Cart service and gRPC service
+- **Python/Flask**: Payment service
+- **Java/Spring Boot**: Inventory service
+- **Serverless Framework**: Discount function
+- **RabbitMQ**: Message queuing
+- **MySQL**: Database
+- **Docker**: Containerization
+- **gRPC**: Alternative communication protocol
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
+
+---
+
+## License
+
+This project is licensed under the ISC License.
+
+---
+
+## Support
+
+For questions or issues, please open an issue in the repository.
+
+### GET — View Cart Contents
+```
+GET http://localhost:3001/view
+```
+![View Cart](images/cart-view.png)
+
+---
+
+## Step 5 — Discount Function (Serverless Offline)
+
+```bash
+cd discount-function
+npm install
+serverless offline --httpPort 3000 --lambdaPort 3004
+```
+
+### With NEWYEAR Code (20% discount)
+```
+POST http://localhost:3000/dev/apply-discount
+Body: { "code": "NEWYEAR" }
+```
+![Discount Applied](images/discount-newyear.png)
+
+### Without Discount Code
+```
+POST http://localhost:3000/dev/apply-discount
+Body: { "code": "BLAH" }
+```
+![No Discount](images/discount-none.png)
+
+---
+
+## Step 6 — Payment Service
+
+### Payment WITH Discount (NEWYEAR — 20% off)
+```
+POST http://localhost:3002/pay
+Body: { "amount": 1000, "method": "card", "code": "NEWYEAR" }
+```
+> Final amount = 1000 - 200 = 800
+
+![Pay With Discount](images/pay-discounted.png)
+
+### Payment WITHOUT Discount
+```
+POST http://localhost:3002/pay
+Body: { "amount": 1000, "method": "card", "code": "" }
+```
+![Pay Without Discount](images/pay-full.png)
+
+---
+
+## Step 7 — RabbitMQ Messaging
+
+### Publish Event (payment_processed)
+```bash
+docker exec -it deploy-payment-1 python -c "import pika; conn = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq')); ch = conn.channel(); ch.queue_declare(queue='events', durable=True); ch.basic_publish(exchange='', routing_key='events', body='payment_processed'); conn.close(); print('Event published successfully')"
+```
+![RabbitMQ Publish](images/rabbitmq-publish.png)
+
+### RabbitMQ Dashboard — Queue with Message
+> Browser: http://localhost:15672 (guest/guest) → Queues and Streams tab
+
+![RabbitMQ Dashboard](images/rabbitmq-dashboard.png)
+
+### Consume Event
+```bash
+python -c "import pika; conn = pika.BlockingConnection(pika.ConnectionParameters('localhost')); ch = conn.channel(); ch.queue_declare(queue='events', durable=True); ch.basic_consume(queue='events', on_message_callback=lambda ch,m,p,b: [print('Event:', b.decode()), ch.stop_consuming()], auto_ack=True); print('Waiting for events...'); ch.start_consuming()"
+```
+![RabbitMQ Consume](images/rabbitmq-consume.png)
+
+---
+
+##  Full Checkout Flow Summary
+
+| Step | Action | Endpoint |
+|---|---|---|
+| 1 | Add Laptop to inventory (qty: 50) | `POST /inventory/update` |
+| 2 | Add Laptop to cart | `POST /add` |
+| 3 | View cart | `GET /view` |
+| 4 | Apply NEWYEAR discount → 20% off | `POST /dev/apply-discount` |
+| 5 | Pay discounted amount (₹800) | `POST /pay` |
+| 6 | Publish payment event to RabbitMQ | python command |
+| 7 | Update inventory after purchase (qty: 45) | `POST /inventory/update` |
+| 8 | Verify stock in MySQL | `GET /inventory/view` |
+
+---
+
+## Key Concepts Demonstrated
+
+- **Synchronous REST APIs** — Cart, Payment, Inventory via HTTP
+- **Asynchronous Messaging** — RabbitMQ publishes `payment_processed` event
+- **Serverless Computing** — Discount function runs offline via Serverless Framework
+- **Persistent Storage** — Inventory data persists in MySQL via Spring Boot JPA
+- **Containerization** — All services run via Docker Compose
