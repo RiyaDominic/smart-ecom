@@ -2,8 +2,6 @@
 
 # Smart E-commerce Microservices
 
-[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue)](https://github.com/RiyaDominic/smart-ecom)
-
 ## Project Overview
 
 This project demonstrates a complete end-to-end e-commerce checkout pipeline using independent microservices. It simulates a real-world workflow similar to Amazon or Flipkart, utilizing REST APIs, asynchronous messaging with RabbitMQ, persistent storage with MySQL, and serverless functions for discount calculations. The system operates without a user interface, focusing on backend microservices communication.
@@ -259,17 +257,7 @@ serverless deploy
 4. Push to the branch
 5. Open a Pull Request
 
----
 
-## License
-
-This project is licensed under the ISC License.
-
----
-
-## Support
-
-For questions or issues, please open an issue in the repository.
 
 ### GET — View Cart Contents
 ```
